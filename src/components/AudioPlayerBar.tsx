@@ -14,35 +14,57 @@ import { useLanguage } from '../context/LanguageContext';
 import { quranApi } from '../services/quranApi';
 import { COLORS, SIZES, SHADOWS } from '../constants/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { RootStackParamList } from '../types';
 
 interface AudioPlayerBarProps {
     surahName?: string;
+    bottomOffset?: number;
 }
 
-export const AudioPlayerBar: React.FC<AudioPlayerBarProps> = ({ surahName }) => {
-    const { isPlaying, isLoading, pauseAudio, resumeAudio, stopAudio, duration, position, currentSurah, selectedReciter, playAudio } = useAudio();
+export const AudioPlayerBar: React.FC<AudioPlayerBarProps> = ({ surahName, bottomOffset = 0 }) => {
+    const { isPlaying, isLoading, pauseAudio, resumeAudio, stopAudio, duration, position, currentSurah, selectedReciter, playAudio, seekTo } = useAudio();
     const { t, language } = useLanguage();
     const insets = useSafeAreaInsets();
+    const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
-    const [displaySurahName, setDisplaySurahName] = React.useState(surahName || '');
-
-    const [showPicker, setShowPicker] = React.useState(false);
     const [surahList, setSurahList] = React.useState<any[]>([]);
+    const [showPicker, setShowPicker] = React.useState(false);
+    const [barWidth, setBarWidth] = React.useState(0);
 
-    React.useEffect(() => {
-        if (currentSurah) {
-            // Fetch cached surah list to resolve the current surah's actual name and translate it
-            quranApi.getSurahList().then(list => {
-                setSurahList(list);
-                const s = list[currentSurah - 1];
-                if (s) {
-                    setDisplaySurahName(language === 'ar' ? s.surahNameArabic : s.surahName);
-                }
-            }).catch(() => { });
-        } else {
-            setDisplaySurahName(surahName || '');
+    const formatTime = (millis: number) => {
+        if (!millis || millis < 0) return '0:00';
+        const totalSeconds = Math.floor(millis / 1000);
+        const minutes = Math.floor(totalSeconds / 60);
+        const seconds = totalSeconds % 60;
+        return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+    };
+
+    const handleSeek = (event: any) => {
+        if (barWidth > 0 && duration > 0) {
+            const touchX = event.nativeEvent.locationX;
+            const percentage = Math.max(0, Math.min(1, touchX / barWidth));
+            const seekPosition = percentage * duration;
+            seekTo(seekPosition);
         }
-    }, [currentSurah, language, surahName]);
+    };
+
+    // Load surah list once on mount (cached by API service)
+    React.useEffect(() => {
+        quranApi.getSurahList().then(list => setSurahList(list)).catch(() => { });
+    }, []);
+
+    // Derive display name directly from current state — no async delay
+    const displaySurahName = React.useMemo(() => {
+        if (currentSurah && surahList.length > 0) {
+            const s = surahList[currentSurah - 1];
+            if (s) {
+                return language === 'ar' ? s.surahNameArabic : s.surahName;
+            }
+        }
+        return surahName || t('player.surah');
+    }, [currentSurah, surahList, language, surahName, t]);
 
     const handleNext = async () => {
         if (currentSurah && currentSurah < 114) {
@@ -66,23 +88,34 @@ export const AudioPlayerBar: React.FC<AudioPlayerBarProps> = ({ surahName }) => 
         await playAudio(url, surahNumber);
     };
 
-    if (!isPlaying && !isLoading) return null;
+    const navigateToSurah = () => {
+        if (currentSurah) {
+            const s = surahList[currentSurah - 1];
+            navigation.navigate('SurahDetail', {
+                surahNo: currentSurah,
+                surahName: s?.surahName || '',
+                surahNameArabic: s?.surahNameArabic || '',
+            });
+        }
+    };
+
+    if (!currentSurah && !isLoading) return null;
 
     const progressWidth = duration > 0 ? (position / duration) * 100 : 0;
 
     return (
-        <View style={styles.outerContainer}>
+        <View style={[styles.outerContainer, { bottom: bottomOffset + (bottomOffset > 0 ? 0 : 10) }]}>
             {showPicker && (
                 <View style={styles.pickerOverlay}>
                     <BlurView intensity={80} tint="dark" style={styles.pickerContainer}>
                         <View style={styles.pickerHeader}>
-                            <Text style={styles.pickerTitle}>{t('player.surah')} Selection</Text>
+                            <Text style={styles.pickerTitle}>{t('player.selection')}</Text>
                             <TouchableOpacity onPress={() => setShowPicker(false)}>
-                                <Ionicons name="close-circle" size={24} color={COLORS.textMuted} />
+                                <Ionicons name="close" size={20} color={COLORS.textSecondary} />
                             </TouchableOpacity>
                         </View>
                         <View style={styles.scrollWrapper}>
-                            <ScrollView style={{ flex: 1 }}>
+                            <ScrollView showsVerticalScrollIndicator={false}>
                                 {surahList.map((s, idx) => {
                                     const num = idx + 1;
                                     const isActive = num === currentSurah;
@@ -95,7 +128,7 @@ export const AudioPlayerBar: React.FC<AudioPlayerBarProps> = ({ surahName }) => 
                                             <Text style={[styles.pickerItemText, isActive && styles.pickerItemTextActive]}>
                                                 {num}. {language === 'ar' ? s.surahNameArabic : s.surahName}
                                             </Text>
-                                            {isActive && <Ionicons name="volume-high" size={16} color={COLORS.bgDark} />}
+                                            {isActive && <Ionicons name="volume-medium" size={16} color={COLORS.accent} />}
                                         </TouchableOpacity>
                                     );
                                 })}
@@ -105,37 +138,48 @@ export const AudioPlayerBar: React.FC<AudioPlayerBarProps> = ({ surahName }) => 
                 </View>
             )}
 
-            <BlurView intensity={100} tint="dark" style={[styles.container, { paddingBottom: insets.bottom }]}>
-                {/* Background Progress Fill */}
-                <View style={[styles.progressFill, { width: `${progressWidth}%` }]} />
+            <BlurView intensity={100} tint="dark" style={styles.container}>
+                {/* Interactive Progress Bar at Top */}
+                <TouchableOpacity
+                    activeOpacity={1}
+                    onPress={handleSeek}
+                    style={styles.progressBar}
+                    onLayout={(e) => setBarWidth(e.nativeEvent.layout.width)}
+                >
+                    <View style={[styles.progressFill, { width: `${progressWidth}%` }]} />
+                </TouchableOpacity>
 
-                <View style={styles.content}>
-                    <View style={styles.iconBox}>
+                <View style={[styles.content]}>
+                    <TouchableOpacity style={styles.iconBox} onPress={() => setShowPicker(!showPicker)}>
                         <Ionicons name="musical-notes" size={20} color={COLORS.bgDark} />
-                    </View>
+                    </TouchableOpacity>
 
-                    {/* Making info clickable to open playlist */}
-                    <TouchableOpacity style={styles.info} onPress={() => setShowPicker(!showPicker)} activeOpacity={0.7}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                            <Text style={styles.label} numberOfLines={1}>
-                                {displaySurahName || t('player.surah')}
-                            </Text>
-                            <Ionicons name="chevron-up" size={14} color={COLORS.textMuted} />
-                        </View>
-                        <Text style={styles.subtext}>
-                            {isLoading ? t('reader.loading') : t('reader.playFull')}
+                    {/* Clicking info now navigates to Surah Detail */}
+                    <TouchableOpacity style={styles.info} onPress={navigateToSurah} activeOpacity={0.7}>
+                        <Text style={styles.label} numberOfLines={1}>
+                            {displaySurahName}
                         </Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                            <Text style={styles.subtext}>
+                                {isLoading ? t('reader.loading') : (isPlaying ? t('player.nowPlaying') : t('reader.playFull'))}
+                            </Text>
+                            {duration > 0 && (
+                                <Text style={styles.timeText}>
+                                    {formatTime(position)} / {formatTime(duration)}
+                                </Text>
+                            )}
+                        </View>
                     </TouchableOpacity>
 
                     <View style={styles.controls}>
-                        <TouchableOpacity onPress={handlePrev} style={styles.skipButton} activeOpacity={0.7}>
-                            <Ionicons name="play-skip-back" size={20} color={COLORS.textPrimary} />
-                        </TouchableOpacity>
+                        {!isLoading && (
+                            <TouchableOpacity onPress={handlePrev} style={styles.skipButton} activeOpacity={0.7}>
+                                <Ionicons name="play-skip-back" size={20} color={COLORS.textPrimary} />
+                            </TouchableOpacity>
+                        )}
 
                         {isLoading ? (
-                            <View style={styles.controlButton}>
-                                <ActivityIndicator size="small" color={COLORS.accent} />
-                            </View>
+                            <ActivityIndicator size="small" color={COLORS.accent} style={{ marginHorizontal: 10 }} />
                         ) : (
                             <TouchableOpacity
                                 onPress={isPlaying ? pauseAudio : resumeAudio}
@@ -144,23 +188,25 @@ export const AudioPlayerBar: React.FC<AudioPlayerBarProps> = ({ surahName }) => 
                             >
                                 <Ionicons
                                     name={isPlaying ? 'pause' : 'play'}
-                                    size={24}
+                                    size={20}
                                     color={COLORS.textPrimary}
-                                    style={{ marginLeft: isPlaying ? 0 : 3 }} // center the play icon visually
+                                    style={{ marginLeft: isPlaying ? 0 : 2 }}
                                 />
                             </TouchableOpacity>
                         )}
 
-                        <TouchableOpacity onPress={handleNext} style={styles.skipButton} activeOpacity={0.7}>
-                            <Ionicons name="play-skip-forward" size={20} color={COLORS.textPrimary} />
-                        </TouchableOpacity>
+                        {!isLoading && (
+                            <TouchableOpacity onPress={handleNext} style={styles.skipButton} activeOpacity={0.7}>
+                                <Ionicons name="play-skip-forward" size={20} color={COLORS.textPrimary} />
+                            </TouchableOpacity>
+                        )}
 
                         <TouchableOpacity
                             onPress={stopAudio}
                             style={styles.stopButton}
                             activeOpacity={0.7}
                         >
-                            <Ionicons name="close" size={24} color={COLORS.textMuted} />
+                            <Ionicons name="stop" size={22} color={COLORS.textMuted} />
                         </TouchableOpacity>
                     </View>
                 </View>
@@ -173,49 +219,59 @@ const styles = StyleSheet.create({
     outerContainer: {
         position: 'absolute',
         bottom: 0,
-        left: 0,
-        right: 0,
-        ...SHADOWS.glow,
-        elevation: 25,
-        shadowColor: COLORS.black,
-        shadowOffset: { width: 0, height: -5 },
-        shadowOpacity: 0.3,
-        shadowRadius: 15,
+        left: 10,
+        right: 10,
+        zIndex: 999,
     },
     container: {
-        backgroundColor: 'rgba(12, 22, 38, 0.45)', // very clear glassy dark
-        borderTopWidth: 1,
-        borderTopColor: 'rgba(212, 165, 116, 0.2)', // Thin gold border
+        borderRadius: 16,
         overflow: 'hidden',
+        borderWidth: 1,
+        borderColor: 'rgba(212, 165, 116, 0.15)',
+        // Shadow for floating effect
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: -4 },
+        shadowOpacity: 0.4,
+        shadowRadius: 12,
+        elevation: 20,
+    },
+    progressBar: {
+        height: 8, // Increased for easier touch
+        backgroundColor: 'rgba(255,255,255,0.06)',
+        justifyContent: 'center',
     },
     progressFill: {
-        position: 'absolute',
-        top: 0,
-        bottom: 0,
-        left: 0,
-        backgroundColor: 'rgba(212, 165, 116, 0.15)', // semi-transparent golden progress overlay
+        height: 4, // Inner fill slightly thinner
+        backgroundColor: COLORS.accent,
+        borderRadius: 2,
+    },
+    timeText: {
+        color: COLORS.textMuted,
+        fontSize: 10,
+        fontWeight: '500',
+        backgroundColor: 'rgba(255,255,255,0.05)',
+        paddingHorizontal: 4,
+        paddingVertical: 1,
+        borderRadius: 4,
     },
     content: {
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'space-between',
-        padding: 5,
-        paddingLeft: 10,
-        paddingRight: 15,
-        height: 70, // fixed sensible height before padding bottom added by insets
+        paddingVertical: 10,
+        paddingHorizontal: 14,
+        gap: 12,
     },
     iconBox: {
-        width: 44,
-        height: 44,
-        borderRadius: 22,
+        width: 46,
+        height: 46,
+        borderRadius: 12,
         backgroundColor: COLORS.accent,
         alignItems: 'center',
         justifyContent: 'center',
-        marginRight: SIZES.md,
         // glow for the icon box
         shadowColor: COLORS.accent,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.4,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.5,
         shadowRadius: 8,
         elevation: 5,
     },
@@ -225,42 +281,41 @@ const styles = StyleSheet.create({
     },
     label: {
         color: COLORS.textPrimary,
-        fontSize: SIZES.fontMd,
+        fontSize: 15,
         fontWeight: '700',
-        letterSpacing: 0.3,
-        marginBottom: 2,
+        letterSpacing: 0.2,
     },
     subtext: {
         color: COLORS.textMuted,
         fontSize: 11,
-        textTransform: 'uppercase',
-        letterSpacing: 1,
-        fontWeight: '600',
+        letterSpacing: 0.5,
+        fontWeight: '500',
+        marginTop: 2,
     },
     controls: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 8,
+        gap: 4,
     },
     controlButton: {
-        width: 44,
-        height: 44,
-        borderRadius: 22,
-        backgroundColor: 'rgba(255,255,255,0.05)', // extremely subtle wrapper
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: 'rgba(212, 165, 116, 0.15)',
         alignItems: 'center',
         justifyContent: 'center',
     },
     skipButton: {
-        width: 36,
-        height: 36,
-        borderRadius: 18,
+        width: 34,
+        height: 34,
+        borderRadius: 17,
         alignItems: 'center',
         justifyContent: 'center',
     },
     stopButton: {
-        width: 44,
-        height: 44,
-        borderRadius: 22,
+        width: 34,
+        height: 34,
+        borderRadius: 17,
         alignItems: 'center',
         justifyContent: 'center',
     },
@@ -273,12 +328,12 @@ const styles = StyleSheet.create({
         paddingBottom: SIZES.sm,
     },
     pickerContainer: {
-        width: '90%',
-        height: 300,
-        borderRadius: SIZES.radiusLg,
+        width: '100%',
+        height: 320,
+        borderRadius: 16,
         overflow: 'hidden',
         borderWidth: 1,
-        borderColor: 'rgba(212, 165, 116, 0.2)',
+        borderColor: 'rgba(212, 165, 116, 0.15)',
     },
     pickerHeader: {
         flexDirection: 'row',
@@ -286,7 +341,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         padding: SIZES.md,
         borderBottomWidth: 1,
-        borderBottomColor: 'rgba(255,255,255,0.05)',
+        borderBottomColor: 'rgba(255,255,255,0.06)',
         backgroundColor: 'rgba(0,0,0,0.2)',
     },
     pickerTitle: {
@@ -302,19 +357,20 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        padding: SIZES.md,
+        paddingVertical: 12,
+        paddingHorizontal: SIZES.md,
         borderBottomWidth: 1,
-        borderBottomColor: 'rgba(255,255,255,0.05)',
+        borderBottomColor: 'rgba(255,255,255,0.04)',
     },
     pickerItemActive: {
-        backgroundColor: COLORS.accentMuted,
+        backgroundColor: 'rgba(212, 165, 116, 0.12)',
     },
     pickerItemText: {
         color: COLORS.textPrimary,
         fontSize: SIZES.fontSm,
     },
     pickerItemTextActive: {
-        color: COLORS.bgDark,
+        color: COLORS.accent,
         fontWeight: 'bold',
     },
 });

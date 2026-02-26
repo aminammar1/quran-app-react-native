@@ -8,6 +8,8 @@ export const translations = {
         noSurahsFound: 'No surahs found',
         loading: 'Loading Quran...',
         tapToRetry: 'Tap to retry',
+        somethingWrong: 'Something went wrong',
+        connectionError: 'Unable to load Quran data. Please check your connection.',
         tabs: {
             mushaf: 'Mushaf',
             bookmarks: 'Bookmarks',
@@ -33,18 +35,36 @@ export const translations = {
         reader: {
             playFull: 'Play Full Surah',
             stopRecitation: 'Stop Recitation',
-            loading: 'Loading Surah...'
+            loading: 'Loading Surah...',
+            both: 'Both',
+            english: 'EN'
+        },
+        player: {
+            surah: 'Surah',
+            selection: 'Choose Surah',
+            nowPlaying: 'Now Playing'
+        },
+        reciter: {
+            choose: 'Choose Reciter',
+            select: 'Select Reciter'
+        },
+        bookmarks: {
+            title: 'Bookmarks',
+            description: 'Save your favorite verses and surahs\nto easily find them later',
+            comingSoon: 'Coming Soon'
         }
     },
     ar: {
-        appTitle: 'The Noble Quran',
+        appTitle: 'القرآن الكريم',
         appTitleArabic: 'القرآن الكريم',
         searchPlaceholder: 'البحث عن سورة...',
-        surahsCount: '114 سورة',
+        surahsCount: '١١٤ سورة',
         results: 'النتائج',
         noSurahsFound: 'لم يتم العثور على سور',
         loading: 'جاري تحميل القرآن...',
         tapToRetry: 'اضغط للمحاولة مرة أخرى',
+        somethingWrong: 'حدث خطأ ما',
+        connectionError: 'تعذر تحميل البيانات. يرجى التحقق من الاتصال.',
         tabs: {
             mushaf: 'المصحف',
             bookmarks: 'العلامات',
@@ -68,9 +88,25 @@ export const translations = {
             verse: 'آية'
         },
         reader: {
-            playFull: 'تشغيل تلاوة السورة',
+            playFull: 'تشغيل السورة',
             stopRecitation: 'إيقاف التلاوة',
-            loading: 'جاري تحميل السورة...'
+            loading: 'جاري تحميل السورة...',
+            both: 'الكل',
+            english: 'EN'
+        },
+        player: {
+            surah: 'السورة',
+            selection: 'اختيار السورة',
+            nowPlaying: 'قيد التشغيل'
+        },
+        reciter: {
+            choose: 'اختيار القارئ',
+            select: 'اختر قارئاً'
+        },
+        bookmarks: {
+            title: 'العلامات المرجعية',
+            description: 'احفظ آياتك وسورك المفضلة\nللعودة إليها بسهولة لاحقاً',
+            comingSoon: 'قريباً'
         }
     }
 };

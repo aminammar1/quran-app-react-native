@@ -3,13 +3,14 @@ import {
     View,
     Text,
     FlatList,
-    StyleSheet,
     ActivityIndicator,
     RefreshControl,
     TextInput,
     StatusBar,
+    StyleSheet,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { SurahCard } from '../components/SurahCard';
@@ -18,8 +19,9 @@ import { quranApi } from '../services/quranApi';
 import { SurahInfo, ReciterMap, RootStackParamList } from '../types';
 import { COLORS, SIZES } from '../constants/theme';
 import { useLanguage } from '../context/LanguageContext';
-
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { styles } from '../styles/HomeScreen.styles';
+import { normalizeArabic } from '../hooks/useArabicUtils';
 
 type Props = {
     navigation: NativeStackNavigationProp<RootStackParamList, 'Main'>;
@@ -45,7 +47,7 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
             setSurahs(surahData);
             setReciters(reciterData);
         } catch (err) {
-            setError('Unable to load Quran data. Please check your connection.');
+            setError(t('connectionError'));
             console.error('Error loading data:', err);
         } finally {
             setLoading(false);
@@ -67,15 +69,9 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
         if (!searchQuery.trim()) return true;
         const q = searchQuery.toLowerCase();
 
-        const normalizeArabic = (text: string) => {
-            return text
-                .replace(/[\u0610-\u061A\u064B-\u065F\u0670\u06D6-\u06DC\u06DF-\u06E8\u06EA-\u06ED]/g, '') // Remove all possible Quranic tashkeel/diacritics
-                .replace(/[إأآاٱ]/g, 'ا') // Normalize Alif forms
-                .replace(/ة/g, 'ه') // Normalize Teh Marbuta to Heh
-                .replace(/ى/g, 'ي'); // Normalize Alef Maksura to Yeh
-        };
-
-        const qAr = normalizeArabic(searchQuery);
+        // Normalize query: remove "سورة" if it exists at the start
+        const cleanQuery = searchQuery.replace(/^سورة\s+/g, '').replace(/\s+سورة$/g, '').trim();
+        const qAr = normalizeArabic(cleanQuery);
         const nameAr = normalizeArabic(surah.surahNameArabic);
 
         return (
@@ -111,7 +107,7 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
             </View>
 
             {/* Search */}
-            <View style={styles.searchContainer}>
+            <BlurView intensity={20} tint="light" style={styles.searchContainer}>
                 <Ionicons name="search" size={18} color={COLORS.textMuted} />
                 <TextInput
                     style={styles.searchInput}
@@ -136,7 +132,7 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
                         style={{ opacity: 0.8 }}
                     />
                 )}
-            </View>
+            </BlurView>
 
             {/* Section Title */}
             <View style={styles.sectionHeader}>
@@ -166,7 +162,7 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
                 <Ionicons name="cloud-offline" size={48} color={COLORS.textMuted} />
                 <Text style={styles.errorText}>{error}</Text>
                 <Text style={styles.retryText} onPress={loadData}>
-                    Tap to retry
+                    {t('tapToRetry')}
                 </Text>
             </View>
         );
@@ -210,7 +206,7 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
                 ListEmptyComponent={
                     <View style={styles.emptyContainer}>
                         <Ionicons name="search" size={40} color={COLORS.textMuted} />
-                        <Text style={styles.emptyText}>No surahs found</Text>
+                        <Text style={styles.emptyText}>{t('noSurahsFound')}</Text>
                     </View>
                 }
             />
@@ -218,135 +214,4 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
     );
 };
 
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: COLORS.bgDark,
-    },
-    centerContainer: {
-        flex: 1,
-        backgroundColor: COLORS.bgDark,
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: SIZES.md,
-    },
-    loadingText: {
-        color: COLORS.textSecondary,
-        fontSize: SIZES.fontMd,
-        marginTop: SIZES.sm,
-    },
-    errorText: {
-        color: COLORS.textSecondary,
-        fontSize: SIZES.fontMd,
-        textAlign: 'center',
-        paddingHorizontal: SIZES.xl,
-    },
-    retryText: {
-        color: COLORS.accent,
-        fontSize: SIZES.fontMd,
-        fontWeight: '600',
-    },
-    header: {
-        paddingTop: SIZES.lg,
-        paddingBottom: SIZES.sm,
-    },
-    titleArea: {
-        paddingHorizontal: SIZES.lg,
-        marginBottom: SIZES.lg,
-    },
-    titleRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'flex-start',
-    },
-    titleArabic: {
-        fontSize: 32,
-        color: COLORS.accent,
-        fontFamily: 'Amiri',
-        marginBottom: 2,
-    },
-    titleEnglish: {
-        fontSize: SIZES.fontSm,
-        color: COLORS.textSecondary,
-        letterSpacing: 2,
-        textTransform: 'uppercase',
-    },
-    searchContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: 'rgba(22, 34, 54, 0.4)',
-        marginHorizontal: SIZES.lg,
-        borderRadius: SIZES.radiusLg,
-        paddingHorizontal: SIZES.md,
-        paddingVertical: SIZES.md,
-        borderWidth: 1,
-        borderColor: 'rgba(212, 165, 116, 0.2)',
-        gap: SIZES.sm,
-        marginBottom: SIZES.lg,
-    },
-    searchInput: {
-        flex: 1,
-        color: COLORS.textPrimary,
-        fontSize: SIZES.fontMd,
-        paddingVertical: 4,
-    },
-    sectionHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingHorizontal: SIZES.lg,
-        marginBottom: SIZES.sm,
-        gap: SIZES.md,
-    },
-    sectionLine: {
-        flex: 1,
-        height: 1,
-        backgroundColor: COLORS.divider,
-    },
-    sectionTitle: {
-        fontSize: SIZES.fontXs,
-        color: COLORS.textMuted,
-        textTransform: 'uppercase',
-        letterSpacing: 2,
-    },
-    listContent: {
-        paddingBottom: 250, // Huge padding to freely scroll past floating elements
-    },
-    glowTop: {
-        position: 'absolute',
-        top: -100,
-        left: -100,
-        width: 300,
-        height: 300,
-        borderRadius: 150,
-        backgroundColor: 'rgba(212, 165, 116, 0.08)',
-        // Shadow/glow properties
-        shadowColor: COLORS.accent,
-        shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: 0.8,
-        shadowRadius: 100,
-        elevation: 0,
-    },
-    glowBottom: {
-        position: 'absolute',
-        bottom: -150,
-        right: -100,
-        width: 400,
-        height: 400,
-        borderRadius: 200,
-        backgroundColor: 'rgba(45, 106, 79, 0.1)',
-        shadowColor: COLORS.primaryLight,
-        shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: 0.8,
-        shadowRadius: 100,
-    },
-    emptyContainer: {
-        alignItems: 'center',
-        justifyContent: 'center',
-        paddingVertical: SIZES.xxl * 2,
-        gap: SIZES.md,
-    },
-    emptyText: {
-        color: COLORS.textMuted,
-        fontSize: SIZES.fontMd,
-    },
-});
+

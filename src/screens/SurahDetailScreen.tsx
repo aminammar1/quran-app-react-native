@@ -23,6 +23,7 @@ import { useAudio } from '../context/AudioContext';
 import { useLanguage } from '../context/LanguageContext';
 import { SurahDetail, RootStackParamList } from '../types';
 import { COLORS, SIZES } from '../constants/theme';
+import { styles } from '../styles/SurahDetailScreen.styles';
 
 type Props = {
     navigation: NativeStackNavigationProp<RootStackParamList, 'SurahDetail'>;
@@ -41,16 +42,29 @@ export const SurahDetailScreen: React.FC<Props> = ({ navigation, route }) => {
     const { selectedReciter, playAudio, isPlaying, currentSurah, stopAudio } = useAudio();
     const insets = useSafeAreaInsets(); // Essential for modern iPhones
 
-    // Use route params as initial fallback, but prefer the global audio state's currentSurah if it changes
-    // This allows the screen to "follow" the audio player when hitting Next/Previous
+    // Use route params as initial value
     const [activeSurahNo, setActiveSurahNo] = useState(surahNo);
 
-    // Update active surah if player skips to a different one via navigation
+    // Track previous currentSurah to distinguish "player skipped" from "component mounted while something was playing"
+    const prevCurrentSurahRef = React.useRef(currentSurah);
+
+    // Reset activeSurahNo when route params change (user navigated to a different surah from list)
     useEffect(() => {
-        if (currentSurah && currentSurah !== activeSurahNo && isPlaying) {
+        setActiveSurahNo(surahNo);
+    }, [surahNo]);
+
+    // Only sync with player when currentSurah actually CHANGES (user hit skip next/prev)
+    // NOT on initial mount when an old surah might still be playing
+    useEffect(() => {
+        if (
+            currentSurah &&
+            currentSurah !== prevCurrentSurahRef.current &&
+            currentSurah !== activeSurahNo
+        ) {
             setActiveSurahNo(currentSurah);
         }
-    }, [currentSurah, isPlaying]);
+        prevCurrentSurahRef.current = currentSurah;
+    }, [currentSurah]);
 
     const loadSurah = useCallback(async () => {
         try {
@@ -59,7 +73,7 @@ export const SurahDetailScreen: React.FC<Props> = ({ navigation, route }) => {
             const data = await quranApi.getSurah(activeSurahNo);
             setSurahData(data);
         } catch (err) {
-            setError('Unable to load surah. Please try again.');
+            setError(t('connectionError'));
             console.error('Error loading surah:', err);
         } finally {
             setLoading(false);
@@ -124,13 +138,13 @@ export const SurahDetailScreen: React.FC<Props> = ({ navigation, route }) => {
                                     style={[styles.toggleBtn, languageMode === 'both' && styles.toggleBtnActive]}
                                     onPress={() => setLanguageMode('both')}
                                 >
-                                    <Text style={[styles.toggleText, languageMode === 'both' && styles.toggleTextActive]}>Both</Text>
+                                    <Text style={[styles.toggleText, languageMode === 'both' && styles.toggleTextActive]}>{t('reader.both')}</Text>
                                 </TouchableOpacity>
                                 <TouchableOpacity
                                     style={[styles.toggleBtn, languageMode === 'english' && styles.toggleBtnActive]}
                                     onPress={() => setLanguageMode('english')}
                                 >
-                                    <Text style={[styles.toggleText, languageMode === 'english' && styles.toggleTextActive]}>EN</Text>
+                                    <Text style={[styles.toggleText, languageMode === 'english' && styles.toggleTextActive]}>{t('reader.english')}</Text>
                                 </TouchableOpacity>
                             </View>
 
@@ -178,7 +192,7 @@ export const SurahDetailScreen: React.FC<Props> = ({ navigation, route }) => {
             <View style={styles.centerContainer}>
                 <StatusBar barStyle="light-content" backgroundColor={COLORS.bgSurah} />
                 <Ionicons name="alert-circle" size={48} color={COLORS.textMuted} />
-                <Text style={styles.errorText}>{error || 'Something went wrong'}</Text>
+                <Text style={styles.errorText}>{error || t('somethingWrong')}</Text>
                 <Text style={styles.retryText} onPress={loadSurah}>{t('tapToRetry')}</Text>
             </View>
         );
@@ -238,168 +252,9 @@ export const SurahDetailScreen: React.FC<Props> = ({ navigation, route }) => {
                     windowSize={5}
                 />
             </View>
-            <AudioPlayerBar surahName={surahName} />
+            <AudioPlayerBar />
         </View>
     );
 };
 
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: COLORS.bgSurah, // A dark navy/black background indicating behind the page
-    },
-    mushafPageBorder: {
-        flex: 1,
-        margin: 8,
-        backgroundColor: 'transparent',
-        borderRadius: 8,
-        borderWidth: 1,
-        borderColor: 'rgba(212, 165, 116, 0.1)',
-        overflow: 'hidden',
-    },
-    centerContainer: {
-        flex: 1,
-        backgroundColor: COLORS.bgSurah,
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: SIZES.md,
-    },
-    loadingText: {
-        color: COLORS.textSecondary,
-        fontSize: SIZES.fontMd,
-    },
-    errorText: {
-        color: COLORS.textSecondary,
-        fontSize: SIZES.fontMd,
-        textAlign: 'center',
-        paddingHorizontal: SIZES.xl,
-    },
-    retryText: {
-        color: COLORS.accent,
-        fontSize: SIZES.fontMd,
-        fontWeight: '600',
-    },
-    surahHeader: {
-        paddingTop: SIZES.lg,
-    },
-    backButton: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: COLORS.bgCard,
-        alignItems: 'center',
-        justifyContent: 'center',
-        borderWidth: 1,
-        borderColor: COLORS.border,
-    },
-    surahHeaderContainer: {
-        position: 'relative',
-        marginHorizontal: SIZES.lg,
-        marginBottom: SIZES.md,
-    },
-    pageHeaderGradientBorder: {
-        borderRadius: SIZES.radiusLg,
-        padding: 1,
-    },
-    pageHeader: {
-        borderRadius: SIZES.radiusLg,
-        backgroundColor: 'rgba(22, 34, 54, 0.45)', // very glassy backdrop
-        padding: SIZES.xl,
-        position: 'relative',
-        alignItems: 'center',
-        overflow: 'hidden',
-    },
-    headerGlowTop: {
-        position: 'absolute',
-        top: -60,
-        left: 20,
-        width: 250,
-        height: 250,
-        borderRadius: 125,
-        backgroundColor: 'rgba(212, 165, 116, 0.1)',
-        shadowColor: COLORS.accent,
-        shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: 0.8,
-        shadowRadius: 100,
-        elevation: 0,
-        zIndex: -1,
-    },
-    glowBgLeft: {
-        position: 'absolute',
-        bottom: 100,
-        left: -150,
-        width: 350,
-        height: 350,
-        borderRadius: 175,
-        backgroundColor: 'rgba(45, 106, 79, 0.1)',
-        shadowColor: COLORS.primaryLight,
-        shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: 0.8,
-        shadowRadius: 100,
-        zIndex: -1,
-    },
-    surahNameArabic: {
-        fontSize: 40,
-        color: COLORS.accent,
-        fontFamily: 'Amiri',
-        marginBottom: SIZES.lg,
-    },
-    playButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingHorizontal: SIZES.lg,
-        paddingVertical: SIZES.sm + 4,
-        borderRadius: SIZES.radiusFull,
-        gap: SIZES.sm,
-        // glow
-        shadowColor: COLORS.accent,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.4,
-        shadowRadius: 10,
-        elevation: 8,
-    },
-    playButtonText: {
-        color: COLORS.bgDark,
-        fontSize: SIZES.fontSm,
-        fontWeight: '700',
-    },
-    togglesContainer: {
-        flexDirection: 'row',
-        backgroundColor: 'rgba(22, 34, 54, 0.5)',
-        borderWidth: 1,
-        borderColor: 'rgba(212, 165, 116, 0.2)',
-        borderRadius: SIZES.radiusFull,
-        padding: 4,
-        marginBottom: SIZES.xl,
-    },
-    toggleBtn: {
-        paddingHorizontal: SIZES.lg,
-        paddingVertical: 8,
-        borderRadius: SIZES.radiusFull,
-    },
-    toggleBtnActive: {
-        backgroundColor: COLORS.accent,
-    },
-    toggleText: {
-        fontSize: SIZES.fontSm,
-        color: COLORS.textSecondary,
-        fontWeight: '600',
-    },
-    toggleTextActive: {
-        color: COLORS.bgDark,
-    },
-    // Decorative corners
-    cornerBox: {
-        position: 'absolute',
-        width: 24,
-        height: 24,
-        borderColor: COLORS.dividerGold,
-    },
-    cbTopLeft: { top: 4, left: 4, borderTopWidth: 2, borderLeftWidth: 2, borderTopLeftRadius: 8 },
-    cbTopRight: { top: 4, right: 4, borderTopWidth: 2, borderRightWidth: 2, borderTopRightRadius: 8 },
-    cbBottomLeft: { bottom: 4, left: 4, borderBottomWidth: 2, borderLeftWidth: 2, borderBottomLeftRadius: 8 },
-    cbBottomRight: { bottom: 4, right: 4, borderBottomWidth: 2, borderRightWidth: 2, borderBottomRightRadius: 8 },
-    listContent: {
-        paddingBottom: 250, // Huge padding to freely scroll past floating player
-    },
-});
+

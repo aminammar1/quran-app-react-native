@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, StyleSheet, Animated } from 'react-native';
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, useNavigationContainerRef } from '@react-navigation/native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as SplashScreen from 'expo-splash-screen';
 import * as Font from 'expo-font';
@@ -8,15 +8,28 @@ import { StatusBar } from 'expo-status-bar';
 import { AppNavigator } from './src/navigation/AppNavigator';
 import { AudioProvider } from './src/context/AudioContext';
 import { LanguageProvider } from './src/context/LanguageContext';
+import { AudioPlayerBar } from './src/components/AudioPlayerBar';
 import { COLORS, SIZES } from './src/constants/theme';
 
 // Keep the splash screen visible while we fetch resources
 SplashScreen.preventAutoHideAsync();
 
+const TAB_BAR_HEIGHT = 85;
+
 export default function App() {
     const [appIsReady, setAppIsReady] = useState(false);
     const [showSplash, setShowSplash] = useState(true);
     const fadeAnim = React.useRef(new Animated.Value(1)).current;
+    const navigationRef = useNavigationContainerRef();
+    const [currentRoute, setCurrentRoute] = useState<string | undefined>('Main');
+
+    const handleStateChange = () => {
+        const route = navigationRef.getCurrentRoute();
+        setCurrentRoute(route?.name);
+    };
+
+    // Player sits above tab bar when tabs are visible, at bottom otherwise
+    const playerBottomOffset = currentRoute === 'SurahDetail' ? 0 : TAB_BAR_HEIGHT;
 
     useEffect(() => {
         async function prepare() {
@@ -61,6 +74,8 @@ export default function App() {
                 <LanguageProvider>
                     <View style={styles.root} onLayout={onLayoutRootView}>
                         <NavigationContainer
+                            ref={navigationRef}
+                            onStateChange={handleStateChange}
                             theme={{
                                 dark: true,
                                 colors: {
@@ -80,6 +95,8 @@ export default function App() {
                             }}
                         >
                             <AppNavigator />
+                            {/* Global floating audio player — persists across all screens */}
+                            <AudioPlayerBar bottomOffset={playerBottomOffset} />
                         </NavigationContainer>
 
                         {/* Custom Splash Overlay */}

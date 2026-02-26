@@ -16,6 +16,7 @@ interface AudioState {
     pauseAudio: () => Promise<void>;
     resumeAudio: () => Promise<void>;
     stopAudio: () => Promise<void>;
+    seekTo: (position: number) => Promise<void>;
     cleanupSound: () => Promise<void>;
 }
 
@@ -100,10 +101,15 @@ export const useAudioStore = create<AudioState>((set, get) => ({
     },
 
     resumeAudio: async () => {
-        const { sound } = get();
+        const { sound, currentSurah, selectedReciter, playAudio } = get();
         if (sound) {
             sound.play();
             set({ isPlaying: true });
+        } else if (currentSurah) {
+            // If stopped (sound cleaned up) but surah still selected, restart it
+            const { quranApi } = await import('../services/quranApi');
+            const url = quranApi.getChapterAudioUrl(currentSurah, selectedReciter);
+            await playAudio(url, currentSurah);
         }
     },
 
@@ -113,10 +119,16 @@ export const useAudioStore = create<AudioState>((set, get) => ({
         set({
             isPlaying: false,
             isLoading: false,
-            currentSurah: null,
             currentAyah: null,
             position: 0,
             duration: 0,
         });
+    },
+
+    seekTo: async (millis: number) => {
+        const { sound } = get();
+        if (sound) {
+            sound.currentTime = millis / 1000;
+        }
     },
 }));

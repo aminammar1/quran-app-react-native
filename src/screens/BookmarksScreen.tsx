@@ -2,8 +2,11 @@ import React from 'react';
 import { View, Text, StyleSheet, StatusBar } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SIZES } from '../constants/theme';
+import { useLanguage } from '../context/LanguageContext';
 
 export const BookmarksScreen: React.FC = () => {
+    const { t } = useLanguage();
+
     return (
         <View style={styles.container}>
             <StatusBar barStyle="light-content" backgroundColor={COLORS.bgDark} />
@@ -11,12 +14,12 @@ export const BookmarksScreen: React.FC = () => {
                 <View style={styles.iconContainer}>
                     <Ionicons name="bookmark-outline" size={56} color={COLORS.textMuted} />
                 </View>
-                <Text style={styles.title}>Bookmarks</Text>
+                <Text style={styles.title}>{t('bookmarks.title')}</Text>
                 <Text style={styles.subtitle}>
-                    Save your favorite verses and surahs{'\n'}to easily find them later
+                    {t('bookmarks.description')}
                 </Text>
                 <View style={styles.badge}>
-                    <Text style={styles.badgeText}>Coming Soon</Text>
+                    <Text style={styles.badgeText}>{t('bookmarks.comingSoon')}</Text>
                 </View>
             </View>
         </View>

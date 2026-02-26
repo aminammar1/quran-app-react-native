@@ -10,6 +10,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SIZES } from '../constants/theme';
 import { useAudio } from '../context/AudioContext';
+import { useLanguage } from '../context/LanguageContext';
 
 interface ReciterPickerProps {
     reciters: Record<string, string>;
@@ -18,9 +19,10 @@ interface ReciterPickerProps {
 export const ReciterPicker: React.FC<ReciterPickerProps> = ({ reciters }) => {
     const [visible, setVisible] = useState(false);
     const { selectedReciter, setSelectedReciter } = useAudio();
+    const { t } = useLanguage();
 
     const reciterEntries = Object.entries(reciters);
-    const currentReciterName = reciters[selectedReciter] || 'Select Reciter';
+    const currentReciterName = reciters[selectedReciter] || t('reciter.select');
 
     const handleSelect = (id: string) => {
         setSelectedReciter(id);
@@ -54,7 +56,7 @@ export const ReciterPicker: React.FC<ReciterPickerProps> = ({ reciters }) => {
                 >
                     <View style={styles.modal}>
                         <View style={styles.modalHeader}>
-                            <Text style={styles.modalTitle}>Choose Reciter</Text>
+                            <Text style={styles.modalTitle}>{t('reciter.choose')}</Text>
                             <TouchableOpacity onPress={() => setVisible(false)}>
                                 <Ionicons name="close" size={22} color={COLORS.textSecondary} />
                             </TouchableOpacity>

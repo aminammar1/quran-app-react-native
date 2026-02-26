@@ -14,6 +14,7 @@
             "supportsTablet": true
         },
         "android": {
+            "package": "com.quran.mushaf",
             "adaptiveIcon": {
                 "foregroundImage": "./assets/adaptive-icon.png",
                 "backgroundColor": "#0A1628"
