@@ -97,7 +97,7 @@ export const translations = {
         player: {
             surah: 'السورة',
             selection: 'اختيار السورة',
-            nowPlaying: 'قيد التشغيل'
+            nowPlaying: 'يُتلى الآن'
         },
         reciter: {
             choose: 'اختيار القارئ',

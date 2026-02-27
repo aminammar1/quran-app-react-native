@@ -1,6 +1,10 @@
 import { create } from 'zustand';
 import { createAudioPlayer, setAudioModeAsync, AudioPlayer } from 'expo-audio';
 
+// External seeking flag — checked by playback listener to skip position updates
+let _isSeeking = false;
+export const setSeekingFlag = (v: boolean) => { _isSeeking = v; };
+
 interface AudioState {
     isPlaying: boolean;
     isLoading: boolean;
@@ -61,7 +65,15 @@ export const useAudioStore = create<AudioState>((set, get) => ({
                 const isLoaded = status.isLoaded ?? true;
                 if (!isLoaded) return;
 
-                // Track update
+                // Skip position updates while user is dragging the seek bar
+                if (_isSeeking) {
+                    set({
+                        isPlaying: player.playing,
+                        duration: player.duration * 1000,
+                    });
+                    return;
+                }
+
                 set({
                     isPlaying: player.playing,
                     duration: player.duration * 1000,
@@ -85,6 +97,8 @@ export const useAudioStore = create<AudioState>((set, get) => ({
                 isLoading: false,
                 currentSurah: surahNo,
                 currentAyah: ayahNo ?? null,
+                position: 0,
+                duration: 0,
             });
         } catch (error) {
             console.error('Error playing audio:', error);
@@ -106,7 +120,6 @@ export const useAudioStore = create<AudioState>((set, get) => ({
             sound.play();
             set({ isPlaying: true });
         } else if (currentSurah) {
-            // If stopped (sound cleaned up) but surah still selected, restart it
             const { quranApi } = await import('../services/quranApi');
             const url = quranApi.getChapterAudioUrl(currentSurah, selectedReciter);
             await playAudio(url, currentSurah);
@@ -128,7 +141,9 @@ export const useAudioStore = create<AudioState>((set, get) => ({
     seekTo: async (millis: number) => {
         const { sound } = get();
         if (sound) {
-            sound.currentTime = millis / 1000;
+            // Immediately update position for instant feedback
+            set({ position: millis });
+            await sound.seekTo(millis / 1000);
         }
     },
 }));

@@ -18,15 +18,22 @@ interface ReciterPickerProps {
 
 export const ReciterPicker: React.FC<ReciterPickerProps> = ({ reciters }) => {
     const [visible, setVisible] = useState(false);
-    const { selectedReciter, setSelectedReciter } = useAudio();
+    const { selectedReciter, setSelectedReciter, currentSurah, playAudio } = useAudio();
     const { t } = useLanguage();
 
     const reciterEntries = Object.entries(reciters);
     const currentReciterName = reciters[selectedReciter] || t('reciter.select');
 
-    const handleSelect = (id: string) => {
+    const handleSelect = async (id: string) => {
         setSelectedReciter(id);
         setVisible(false);
+
+        // AUTO-RESET: if a surah is already selected, restart with the new reciter
+        if (currentSurah) {
+            const { quranApi } = await import('../services/quranApi');
+            const url = quranApi.getChapterAudioUrl(currentSurah, id);
+            await playAudio(url, currentSurah);
+        }
     };
 
     return (
